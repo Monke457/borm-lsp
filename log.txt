@@ -1,0 +1,15 @@
+[bormlsp]2025/01/18 18:40:45 main.go:16: Hey, I started!
+[bormlsp]2025/01/18 18:40:45 main.go:36: Received msg with method: initialize
+[bormlsp]2025/01/18 18:40:45 main.go:45: Connected to: Neovim 0.10.2+g8b9864200
+[bormlsp]2025/01/18 18:40:45 main.go:36: Received msg with method: initialized
+[bormlsp]2025/01/18 18:40:46 main.go:36: Received msg with method: textDocument/didOpen
+[bormlsp]2025/01/18 18:40:46 main.go:59: Opened: file:///home/unix/projects/borm-lsp/test.sct
+[bormlsp]2025/01/18 18:40:49 main.go:36: Received msg with method: textDocument/didChange
+[bormlsp]2025/01/18 18:40:49 main.go:80: Changed: file:///home/unix/projects/borm-lsp/test.sct
+[bormlsp]2025/01/18 18:40:51 main.go:36: Received msg with method: textDocument/didChange
+[bormlsp]2025/01/18 18:40:51 main.go:80: Changed: file:///home/unix/projects/borm-lsp/test.sct
+[bormlsp]2025/01/18 18:40:52 main.go:36: Received msg with method: textDocument/didSave
+[bormlsp]2025/01/18 18:40:54 main.go:36: Received msg with method: textDocument/didChange
+[bormlsp]2025/01/18 18:40:54 main.go:80: Changed: file:///home/unix/projects/borm-lsp/test.sct
+[bormlsp]2025/01/18 18:40:58 main.go:36: Received msg with method: textDocument/didSave
+[bormlsp]2025/01/18 18:40:58 main.go:36: Received msg with method: shutdown
