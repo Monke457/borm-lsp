@@ -8,10 +8,32 @@ import (
 
 type State struct {
 	Documents map[string]string
+	CompletionItems []lsp.CompletionItem
 }
 
-func NewState() State {
-	return State{Documents:map[string]string{}}
+func NewState(datafile string) (State, error) {
+	completionItems, err := initCompletionItems(datafile)
+	return State{
+		Documents:map[string]string{},
+		CompletionItems: completionItems,
+	}, err
+}
+
+func initCompletionItems(datafile string) ([]lsp.CompletionItem, error) {
+	functions, err := ReadFunctionsFromFile(datafile)
+	items := []lsp.CompletionItem{}
+	if err != nil {
+		return items, err
+	}
+	for _, function := range functions {
+		items = append(items, lsp.CompletionItem{
+			Label: function.Name, 
+			Kind: 3,
+			Detail: function.Definition,
+			Documentation: function.Description,
+		})
+	}
+	return items, nil
 }
 
 func getDiagnosticsForFile(text string) []lsp.Diagnostic {
@@ -138,21 +160,12 @@ func (s *State) CodeAction(id int, uri string) lsp.CodeActionResponse {
 }
 
 func (s *State) Completion(id int, uri string) lsp.CompletionResponse {
-	items := []lsp.CompletionItem{
-		{
-			Label: "Test",
-			Kind: "Test Suite",
-			Detail: "Test of lsp completion for BormScript",
-			Documentation: "It's just a test...",
-		},
-	}
-
 	response := lsp.CompletionResponse {
 		Response: lsp.Response {
 			RPC: "2.0",
 			Id: &id,
 		},
-		Result: items,
+		Result: s.CompletionItems,
 	}
 	return response
 }

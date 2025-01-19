@@ -18,7 +18,10 @@ func main() {
 	scanner := bufio.NewScanner(os.Stdin)
 	scanner.Split(rpc.Split)
 
-	state := analysis.NewState()
+	state, err := analysis.NewState("bormfuncs.csv")
+	if err != nil {
+		logger.Printf("Error when creating state. Does the data file exist? Error: %s", err)
+	}
 	writer := os.Stdout
 
 	for scanner.Scan() {
