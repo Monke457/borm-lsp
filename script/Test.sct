@@ -2,3 +2,5 @@ bool function main() {
 	MsgBox("Hello World!", "HelloWorld.sct");
 	return true;
 }
+		
+// this is a comment

@@ -1,0 +1,28 @@
+// this is a test suite...
+// functions don't have to do anything
+// we just want to develop the completion and import functionality
+
+string function GetDBObject(int id) {
+	// database query
+	return "";
+}
+
+[]string function FindDBObjects(string search) {
+	// database query
+	return []string;
+}
+
+bool function CreateDBObject(string object) {
+	// database query
+	return true
+}
+
+bool function EditDBObject(string object) {
+	// database query
+	return true
+}
+
+bool function DeleteDBObject(string object) {
+	// database query
+	return true
+}

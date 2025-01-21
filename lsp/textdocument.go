@@ -191,4 +191,5 @@ type CompletionItem struct {
 	Kind int `json:"kind"` 
 	Detail string `json:"detail"` 
 	Documentation string `json:"documentation"` 
+	AdditionalTextEdits []TextEdit `json:"additionalTextEdits,omitempty"` 
 }

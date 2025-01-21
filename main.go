@@ -6,6 +6,7 @@ import (
 	"borm-lsp/rpc"
 	"bufio"
 	"encoding/json"
+	"fmt"
 	"io"
 	"log"
 	"os"
@@ -13,15 +14,12 @@ import (
 
 func main() {
 	logger := getLogger("/home/unix/projects/borm-lsp/log.txt")
-	logger.Println("Hey, I started!")
+	logger.Println("bormlsp started")
 
 	scanner := bufio.NewScanner(os.Stdin)
 	scanner.Split(rpc.Split)
 
-	state, err := analysis.NewState("bormfuncs.csv")
-	if err != nil {
-		logger.Printf("Error when creating state. Does the data file exist? Error: %s", err)
-	}
+	state := analysis.NewState()
 	writer := os.Stdout
 
 	for scanner.Scan() {
@@ -61,7 +59,7 @@ func handleMessage(logger *log.Logger, writer io.Writer, state analysis.State, m
 
 		logger.Printf("Opened: %s", request.Params.TextDocument.URI)
 
-		diagnostics := state.OpenDocument(request.Params.TextDocument.URI, request.Params.TextDocument.Text)
+		diagnostics := state.OpenDocument(logger, request.Params.TextDocument.URI, request.Params.TextDocument.Text)
 		writeResponse(writer, lsp.DiagnosticNotification{
 			Notification: lsp.Notification{
 				RPC: "2.0",
@@ -83,7 +81,7 @@ func handleMessage(logger *log.Logger, writer io.Writer, state analysis.State, m
 		logger.Printf("Changed: %s", request.Params.TextDocument.URI)
 
 		for _, change := range request.Params.ContentChanges {
-			diagnostics := state.UpdateDocument(request.Params.TextDocument.URI, change.Text)
+			diagnostics := state.UpdateDocument(logger, request.Params.TextDocument.URI, change.Text)
 			writeResponse(writer, lsp.DiagnosticNotification{
 				Notification: lsp.Notification{
 					RPC: "2.0",
@@ -103,7 +101,7 @@ func handleMessage(logger *log.Logger, writer io.Writer, state analysis.State, m
 			return 
 		}
 		
-		response := state.Hover(request.Id, request.Params.TextDocument.URI, request.Params.Position)
+		response := state.Hover(logger, request.Id, request.Params.TextDocument.URI, request.Params.Position)
 		writeResponse(writer, response)
 
 	case "textDocument/definition":
@@ -133,7 +131,7 @@ func handleMessage(logger *log.Logger, writer io.Writer, state analysis.State, m
 			return 
 		}
 		
-		response := state.Completion(request.Id, request.Params.TextDocument.URI) 
+		response := state.Completion(request.Id, request.Params.TextDocument.URI)
 		writeResponse(writer, response)
 	}
 }
@@ -146,7 +144,7 @@ func writeResponse(writer io.Writer, msg any) {
 func getLogger(filename string) *log.Logger {
 	logfile, err := os.OpenFile(filename, os.O_CREATE|os.O_TRUNC|os.O_WRONLY, 0666)
 	if err != nil {
-		panic("hey, you didn't give me a good file")
+		panic(fmt.Errorf("Invalid log file: %v", err))
 	}
 	return log.New(logfile, "[bormlsp]", log.Ldate|log.Ltime|log.Lshortfile)
 }
