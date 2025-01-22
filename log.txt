@@ -1,5 +1,5 @@
-[bormlsp]2025/01/22 17:00:18 main.go:17: bormlsp started
-[bormlsp]2025/01/22 17:00:18 main.go:37: Received msg with method: initialize
-[bormlsp]2025/01/22 17:00:18 main.go:46: Connected to: Neovim 0.10.2+g8b9864200
-[bormlsp]2025/01/22 17:00:18 main.go:37: Received msg with method: initialized
-[bormlsp]2025/01/22 17:01:56 main.go:37: Received msg with method: shutdown
+[bormlsp]2025/01/22 20:42:39 main.go:17: bormlsp started
+[bormlsp]2025/01/22 20:42:39 main.go:37: Received msg with method: initialize
+[bormlsp]2025/01/22 20:42:39 main.go:46: Connected to: Neovim 0.10.2+g8b9864200
+[bormlsp]2025/01/22 20:42:39 main.go:37: Received msg with method: initialized
+[bormlsp]2025/01/22 23:42:19 main.go:37: Received msg with method: shutdown
