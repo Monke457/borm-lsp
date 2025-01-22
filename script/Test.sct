@@ -1,3 +1,4 @@
+#include "file" 
 bool function main() {
 	MsgBox("Hello World!", "HelloWorld.sct");
 	return true;

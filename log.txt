@@ -1,26 +1,5 @@
-[bormlsp]2025/01/21 17:42:07 main.go:17: bormlsp started
-[bormlsp]2025/01/21 17:42:07 main.go:37: Received msg with method: initialize
-[bormlsp]2025/01/21 17:42:07 main.go:46: Connected to: Neovim 0.10.2+g8b9864200
-[bormlsp]2025/01/21 17:42:07 main.go:37: Received msg with method: initialized
-[bormlsp]2025/01/21 17:42:10 main.go:37: Received msg with method: textDocument/didOpen
-[bormlsp]2025/01/21 17:42:10 main.go:60: Opened: file:///home/unix/projects/borm-lsp/script/Test.sct
-[bormlsp]2025/01/21 17:42:10 syntaxTree.go:42: creating a tree of doc file:///home/unix/projects/borm-lsp/script/Test.sct bool function main() {
-	MsgBox("Hello World!", "HelloWorld.sct");
-	return true;
-}
-		
-// this is a comment
- {0 0} {7 0}
-[bormlsp]2025/01/21 17:42:10 syntaxTree.go:65: found and added a child block node {[] 0xc0000b20c0 {0 21} {3 0}  block}
-[bormlsp]2025/01/21 17:42:10 syntaxTree.go:53: found and added a child comment node {[] 0xc0000b20c0 {5 0} {5 20} // this is a comment comment}
-[bormlsp]2025/01/21 17:42:10 syntaxTree.go:69: created tree with root node {[{[] 0xc0000b20c0 {0 21} {3 0}  block} {[] 0xc0000b20c0 {5 0} {5 20} // this is a comment comment}] <nil> {0 0} {7 0} file:///home/unix/projects/borm-lsp/script/Test.sct file}
-[bormlsp]2025/01/21 17:42:11 main.go:37: Received msg with method: textDocument/hover
-[bormlsp]2025/01/21 17:42:12 main.go:37: Received msg with method: textDocument/hover
-[bormlsp]2025/01/21 17:42:13 main.go:37: Received msg with method: textDocument/hover
-[bormlsp]2025/01/21 17:42:15 main.go:37: Received msg with method: textDocument/hover
-[bormlsp]2025/01/21 17:42:16 main.go:37: Received msg with method: textDocument/hover
-[bormlsp]2025/01/21 17:42:19 main.go:37: Received msg with method: textDocument/hover
-[bormlsp]2025/01/21 17:42:20 main.go:37: Received msg with method: textDocument/hover
-[bormlsp]2025/01/21 17:42:22 main.go:37: Received msg with method: textDocument/didSave
-[bormlsp]2025/01/21 17:42:24 main.go:37: Received msg with method: textDocument/didSave
-[bormlsp]2025/01/21 17:42:24 main.go:37: Received msg with method: shutdown
+[bormlsp]2025/01/22 17:00:18 main.go:17: bormlsp started
+[bormlsp]2025/01/22 17:00:18 main.go:37: Received msg with method: initialize
+[bormlsp]2025/01/22 17:00:18 main.go:46: Connected to: Neovim 0.10.2+g8b9864200
+[bormlsp]2025/01/22 17:00:18 main.go:37: Received msg with method: initialized
+[bormlsp]2025/01/22 17:01:56 main.go:37: Received msg with method: shutdown

@@ -7,45 +7,56 @@ import (
 )
 
 type State struct {
-	Documents map[string]SyntaxTree
+	Documents map[string]SyntaxNode
 }
 
 func NewState() State {
 	return State{
-		Documents:map[string]SyntaxTree{}, 
+		Documents:map[string]SyntaxNode{}, 
 	}
 }
 
-func getDiagnosticsForFile(text string) []lsp.Diagnostic {
+func getDiagnosticsForFile(tree SyntaxNode) []lsp.Diagnostic {
 	diagnostics := []lsp.Diagnostic{}
 
-	diagnostics = append(diagnostics, lsp.Diagnostic{
-		Range: LineRange(0, 0, 0),
-		Severity: 1,
-		Source: "Base Library",
-		Message: "diagnostics operational",
-	})
+	for _, node := range tree.GetBadNodes() {
+		var msg string
+		switch node.Type {
+		case INCLUDE:
+			msg = "Bad include statement. Please reformat the statement: #include <headder-file> OR #include \"file_path\""
+		default:
+			msg = "Syntax error"
+		}
+		diagnostics = append(diagnostics, lsp.Diagnostic{
+			Range: lsp.Range{Start: node.Start, End: node.End},
+			Severity: 1,
+			Source: "idk lol",
+			Message: msg,
+		})
+	}
 	
 	return diagnostics
 }
 
 func (s *State) OpenDocument(logger *log.Logger, uri, text string) []lsp.Diagnostic {
 	s.Documents[uri] = CreateTree(logger, uri, text)
-	return getDiagnosticsForFile(text)
+	return getDiagnosticsForFile(s.Documents[uri])
 }
 
 func (s *State) UpdateDocument(logger *log.Logger, uri, text string) []lsp.Diagnostic {
 	s.Documents[uri] = CreateTree(logger, uri, text)
-	return getDiagnosticsForFile(text)
+	return getDiagnosticsForFile(s.Documents[uri])
 }
 
 func (s *State) Hover(logger *log.Logger, id int, uri string, position lsp.Position) lsp.HoverResponse {
 	node, found := s.Documents[uri].FindNodeAtPosition(logger, position)
 	var content string
 	if found {
-		content = fmt.Sprintf("Found a node! Type: %s Value: %s", node.Type, node.Value)
+		content = fmt.Sprintf("This is a node of type %s! Value: %s", node.Type, node.Value)
 	} else {
-		content = fmt.Sprintf("Closest node type: %s Value: %s", node.Type, node.Value)
+		content = fmt.Sprintf(
+			"Closest node type: %s Value: %s Line: %d Col: %d", 
+			node.Type, node.Value, node.Start.Line, node.Start.Character)
 	}
 	return lsp.HoverResponse {
 		Response: lsp.Response {
