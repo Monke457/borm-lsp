@@ -14,17 +14,37 @@ const (
 	FUNCTION = "function"
 	DECLARATION = "declaration"
 	NAME = "name"
+	NAMESPACE = "namespace"
 	FIELD = "field" 
 	VARIABLE = "variable" 
 	VALUE = "value" 
 	KEYWORD = "keyword" 
 	FILE = "file" 
+	REFERENCE = "reference"
+	HEADERFILE = "header_file" 
 	BLOCK = "block" 
 	COMMENT = "comment" 
 	INCLUDE = "include" 
 	TYPE = "type"
 )
 
+//TODO: this needs to be better
+//values in the nodes are wrong
+//since nodes can be made of multiple tokens and the whitespace is lost
+//File paths COULD potentially contain spaces
+//Comments LIKELY to contain whitespace
+
+//could fix this at the tokenizer level
+//I.e., take into account quotes and comments when tokenizing instead of at tree level logic
+//downside is that we will lose granularity 
+//(individual nodes within comments or quotes are lost, single token for all)
+//meaning hypertext comments or string placeholders are not analysed
+
+//another solution.. not storing all values in nodes: do we need to store them here?
+//we can find the actual values in the files using position info
+//this is probably the better solution
+
+//for now work without values and see if any issues come up
 type SyntaxNode struct {
 	Children []SyntaxNode
 	Parent *SyntaxNode
@@ -86,20 +106,18 @@ func (n SyntaxNode) GetBadNodes() []SyntaxNode {
 func CreateTree(logger *log.Logger, doc, text string) SyntaxNode {
 	tokens := Tokenize(text)
 	if len(tokens) == 0 {
-		return SyntaxNode{}
+		return NewNode(nil, lsp.Position{}, lsp.Position{}, doc, FILE)
 	}
 
-	root := SyntaxNode{
-		Value:doc, 
-		Type: FILE, 
-		Start: GetStartPos(tokens...), 
-		End: GetFinalPos(tokens...),
-	}
+	root := NewNode(nil, GetStartPos(tokens...), GetFinalPos(tokens...), doc, FILE)
 
 	return root.createBranch(logger, tokens)
 }
 
 func (n SyntaxNode) passedHeader() bool {
+	if n.Type != FILE {
+		return true
+	}
 	for _, child := range n.Children {
 		if child.Type != COMMENT && child.Type != INCLUDE {
 			return true
@@ -111,49 +129,60 @@ func (n SyntaxNode) passedHeader() bool {
 func (n SyntaxNode) createBranch(logger *log.Logger, tokens []Token) SyntaxNode {
 	i := 0
 	for i < len(tokens) {
+		logger.Printf("looping tokens for node type: %s. current children %d", n.Type, len(n.Children))
 		token := tokens[i]
-		if len(token.value) < 2 {
-			i++ 
-			continue
-		}
-		if token.value[:2] == "//" {
+		switch token.value {
+		case "/": 
+			if i >= len(tokens) || tokens[i+1].value != "/" {
+				// it's just a weird slash???
+				// this is probably bad
+				i++
+				break
+			}
 			//it's a comment
 			node, jump := createCommentNode(tokens[i:])
 			node.Parent = &n
 			n.Children = append(n.Children, node)
-			i += jump+1
-			continue
-		}
-		switch token.value {
+			logger.Printf("added %s", node.Type)
+			i += jump
+		case ";", ":", "\"", "'", "`", "(", ")", "{", "}" :
+			// it's something unexpected (should be handled in other cases
+			// probably an issue...)
+			i++
+
 		case "#include":
 			//it's an include statement 
 			node, jump := createIncludeNode(tokens[i:])
 			node.Parent = &n
-			if n.Type != FILE || n.passedHeader() {
+			if n.passedHeader() {
 				// is bad
 				node.IsBad = true
 				node.Diagnostics = append(node.Diagnostics, "include statements must appear before other declarations.")
 			} 
-			n.Children = append(n.Children, node)
 			i += jump
+			n.Children = append(n.Children, node)
+			logger.Printf("added %s", node.Type)
 		case "void":
 			// it's a function
 			node, jump := createFunctionNode(tokens[i:])
 			node.Parent = &n
 			n.Children = append(n.Children, node)
 			i += jump
+			logger.Printf("added %s", node.Type)
 		case "int", "double", "float", "char", "bool", "string":
 			//it's a declaration. could be a function
 			node, jump := createDeclarationNode(tokens[i:])
 			node.Parent = &n
 			n.Children = append(n.Children, node)
 			i += jump
+			logger.Printf("added %s", node.Type)
 
 		default:
 			// unhandled/text token
 			node := NewNode(&n, token.pos, GetFinalPos(token), token.value, TEXT)
 			n.Children = append(n.Children, node)
 			i++
+			logger.Printf("added %s: value %s", node.Type, node.Value)
 		}
 	}
 	return n
@@ -179,14 +208,14 @@ func createDeclarationNode(tokens []Token) (SyntaxNode, int) {
 
 func createFunctionNode(tokens []Token) (SyntaxNode, int) {
 	firstLine := GetTokensToNewLine(tokens)
-	headNode, name, err := createFunctionHeadNode(firstLine)
+	headNode, err := createFunctionHeadNode(firstLine)
 	if err != nil {
 		// is bad, function not properly formed
 		headNode.IsBad = true
 		headNode.Diagnostics = append(headNode.Diagnostics, err.Error())
 	}
 
-	node := NewNode(nil, GetStartPos(firstLine...), headNode.End, name, FUNCTION)
+	node := NewNode(nil, GetStartPos(firstLine...), headNode.End, "", FUNCTION)
 	node.Children = append(node.Children, headNode)
 	if headNode.Type == DECLARATION {
 		return node, len(firstLine)
@@ -203,59 +232,14 @@ func createFunctionNode(tokens []Token) (SyntaxNode, int) {
 	return node, len(firstLine)
 }
 
-func createFunctionHeadNode(tokens []Token) (SyntaxNode, string, error) {
-	node := NewNode(nil, GetStartPos(tokens...), GetFinalPos(tokens...), Stringify(tokens), DECLARATION)
-	if len(tokens) == 1 {
-		return node, "", fmt.Errorf("%s is not an expression", tokens[0].value)		
-	}
-	typeNode := NewNode(&node, GetStartPos(tokens[0]), GetFinalPos(tokens[0]), tokens[0].value, TYPE)
-	node.Children = append(node.Children, typeNode)
+func createFunctionHeadNode(tokens []Token) (SyntaxNode, error) {
+	node := NewNode(nil, tokens[0].pos, tokens[1].pos, "", FUNCTION)
+	return node, nil
+}
 
-	if tokens[1].value != "function" {
-		return node, "", fmt.Errorf("Malformed function declaration")		
-	}
-	keyWordNode := NewNode(&node, GetStartPos(tokens[1]), GetFinalPos(tokens[1]), tokens[1].value, KEYWORD)
-	node.Children = append(node.Children, keyWordNode)
-
-	if len(tokens) == 2 {
-		return node, "", fmt.Errorf("A function must have a name")
-	}
-
-	if !strings.Contains(tokens[2].value, "(") {
-		//deal with this later i guess
-	}
-
-	name, params, _ := strings.Cut(tokens[2].value, "(")
-	start := GetStartPos(tokens[2])
-	end := lsp.Position{Line:start.Line, Character:start.Character + len(name)}
-	nameNode := NewNode(&node, start, end, name, NAME)
-
-	params, rest, found := strings.Cut(params, ")")
-	if found {
-		// we have no params
-		if strings.TrimSpace(rest)[0] == ';' {
-			// it's a declaration
-			return node, name, nil
-		} 
-		node.Type = FUNCTION 
-		return node, name, nil
-	}
-
-	paramNodes := []SyntaxNode{}
-	if len(params) > 0 {
-		paramstart := lsp.Position{Line:start.Line, Character: end.Character+2}
-		paramend := lsp.Position{Line:start.Line, Character: paramstart.Character+len(params)}
-		paramNodes = append(paramNodes, NewNode(&node, paramstart, paramend, params, TYPE))
-	}
-
-	node.Children = append(node.Children, nameNode)
-	node.Children = append(node.Children, paramNodes...)
-
-	if len(tokens) == 3 {
-		return node, "", fmt.Errorf("Malformed function.")
-	}
-
-	return node, nameNode.Value, nil
+func createFunctionBodyNode(tokens []Token) (SyntaxNode, error) {
+	node := NewNode(nil, tokens[0].pos, tokens[1].pos, "", FUNCTION)
+	return node, nil
 }
 
 func createVariableNode(tokens []Token) (SyntaxNode, int) {
@@ -265,48 +249,124 @@ func createVariableNode(tokens []Token) (SyntaxNode, int) {
 
 func createCommentNode(tokens []Token) (SyntaxNode, int) {
 	tokens = GetTokensToNewLine(tokens)
-	node := NewNode(nil, GetStartPos(tokens...), GetFinalPos(tokens...), Stringify(tokens), COMMENT)
+	node := NewNode(nil, GetStartPos(tokens...), GetFinalPos(tokens...), "", COMMENT)
 	return node, len(tokens)
 }
 
 func createIncludeNode(tokens []Token) (SyntaxNode, int) {
-	tokens = GetTokensToNewLine(tokens)
-	spent := len(tokens)
-	node := NewNode(nil, tokens[0].pos, GetFinalPos(tokens...), Stringify(tokens), INCLUDE)
+	// #include <header.h>
+	// #include "G://dir/file_path.sct"
+	var node SyntaxNode
+	children := []SyntaxNode{}
 
-	keywordNode := NewNode(&node, tokens[0].pos, GetFinalPos(tokens[0]), "include", KEYWORD)
-	node.Children = append(node.Children, keywordNode)
-	
-	if len(tokens) < 2 {
-		node.IsBad = true
-		node.Diagnostics = append(node.Diagnostics, "You must supply a file or header to be included.")
-		return node, spent
-	}
-	if len(tokens) > 2 {
-		node.IsBad = true
-		node.Diagnostics = append(node.Diagnostics, "Syntax error. Please attach a single header or file per include.")
-	}
-
-	valueNode := NewNode(&node, tokens[1].pos, GetFinalPos(tokens[1]), "", VALUE)
-	switch tokens[1].value[0] {
-	case '"':
-		if tokens[1].value[len(tokens[1].value)-1] != '"' {
-			valueNode.IsBad = true
-			valueNode.Diagnostics = append(valueNode.Diagnostics, "Unclosed quotation marks.")
+	var endVal string
+	line := tokens[0].pos.Line
+	count := 0
+	for _, token := range IterTokensToAnyValue(tokens, "<", "\"") {
+		if token.pos.Line != line {
+			break
 		}
-	case '<':
-		if tokens[1].value[len(tokens[1].value)-1] != '>' {
-			valueNode.IsBad = true
-			valueNode.Diagnostics = append(valueNode.Diagnostics, "Unclosed angle brackets.")
+		switch token.value {
+		case "#include":
+			n := NewNode(&node, GetStartPos(token), GetFinalPos(token), "", KEYWORD)
+			if count != 0 {
+				n.IsBad = true
+				n.Diagnostics = append(n.Diagnostics, "Unexpected '#include' token position")
+			}
+			children = append(children, n)
+		case "<":
+			endVal = ">"
+		case "\"": 
+			endVal = "\""
+		default:
+			n := NewNode(&node, GetStartPos(token), GetFinalPos(token), "", REFERENCE)
+			n.IsBad = true
+			n.Diagnostics = append(n.Diagnostics, "Unexpected token")
+			children = append(children, n)
 		}
-	default:
-		valueNode.IsBad = true
-		valueNode.Diagnostics = append(valueNode.Diagnostics, "Syntax error. Accepted include formats: <header.h> or \"file_path\".")
+		count++
 	}
-	valueNode.Value = strings.Trim(tokens[1].value, "\"<>")
+	//this ends ON the index of the opening token 
+	//tokens[count].value == "\"" or "<"
+	//do not count this as start position of reference (the next one is the start)
 
-	node.Children = append(node.Children, valueNode)
-	return node, spent
+	valueCount := 0
+	for _, token := range IterTokensToValue(tokens[count:], endVal) {
+		if token.pos.Line != line {
+			break
+		}
+		valueCount++
+	}
+	//this ends ON the index of the end token
+	//do not count this as final position of reference (the previous is sthe start)
+
+	if valueCount > 0 {
+		//TODO: make this better... it's a little hard to understand all the indexes
+		refnode := NewNode(&node, GetStartPos(tokens[count]), GetFinalPos(tokens[count+valueCount-1]), "", REFERENCE)
+		if endVal == ">" && valueCount != 4 {
+			refnode.IsBad = true
+			refnode.Diagnostics = append(refnode.Diagnostics, "Malformed header file")
+		}
+		children = append(children, refnode)
+	} 
+	count += valueCount
+
+	if count < len(tokens) && tokens[count+1].pos.Line == line+1 && tokens[count+1].value == "using" {
+		// has a namespace
+		nsNode, nsCount := createNamespaceNode(tokens[count+1:])
+		nsNode.Parent = &node
+		children = append(children, nsNode)
+		count += nsCount
+	}
+
+	node = NewNode(nil, tokens[0].pos, GetFinalPos(tokens[count]), "", INCLUDE)
+	node.Children = children
+	return node, count
+}
+
+func createNamespaceNode(tokens []Token) (SyntaxNode, int) {
+	var node SyntaxNode
+	children := []SyntaxNode{}
+
+	line := tokens[0].pos.Line
+	count := 0
+	for _, token := range IterTokensToValue(tokens, ";") {
+		if token.pos.Line != line {
+			break
+		}
+
+		switch token.value {
+		case "using":
+			n := NewNode(&node, GetStartPos(token), GetFinalPos(token), "", KEYWORD)
+			if count != 0 {
+				n.IsBad = true
+				n.Diagnostics = append(n.Diagnostics, "Unexpected 'using' token position")
+			}
+			children = append(children, n)
+
+		case "namespace":
+			n := NewNode(&node, GetStartPos(token), GetFinalPos(token), "", KEYWORD)
+			if count != 1 {
+				n.IsBad = true
+				n.Diagnostics = append(n.Diagnostics, "Unexpected 'namespace' token position")
+			}
+			children = append(children, n)
+
+		default:
+			n := NewNode(&node, GetStartPos(token), GetFinalPos(token), "", REFERENCE)
+			if count != 2 {
+				n.IsBad = true
+				n.Diagnostics = append(n.Diagnostics, "Unexpected token")
+			}
+			children = append(children, n)
+		}
+		count++
+	}
+
+	node = NewNode(nil, tokens[0].pos, GetFinalPos(tokens...), "", NAMESPACE)
+	node.Children = children
+
+	return node, count
 }
 
 func createFileNode(text string, line, charPos int) SyntaxNode {
@@ -319,10 +379,10 @@ func createFileNode(text string, line, charPos int) SyntaxNode {
 	start := strings.Index(text, value)
 	node:= NewNode(
 		nil, 
-		value, 
-		FILE, 
 		lsp.Position{Line:line, Character:start}, 
 		lsp.Position{Line:line, Character:start+len(value)}, 
+		value, 
+		FILE, 
 	) 
 	if len(value) == 0 || 
 	!(encloser == '"' || encloser == '<' || encloser == '\'') ||

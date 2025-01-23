@@ -3,6 +3,8 @@ package analysis
 import (
 	"borm-lsp/lsp"
 	"fmt"
+	"iter"
+	"slices"
 	"strings"
 )
 
@@ -11,22 +13,30 @@ type Token struct {
 	value string
 }
 
+var splitters = []byte{'(', ')', '{', '}', '<', '>', '.', ',', '"', '\'', '`', ';', ' ', '/', ':'}
+
 func Tokenize(text string) []Token {
 	tokens := []Token{}
 	sb := strings.Builder{}
 
+	// void func test(param string) {} //comment
 	for i, line := range strings.Split(text, "\n") {
 		for j := 0; j < len(line); j++ {
-			if line[j] != ' ' {
+			if !slices.Contains(splitters, line[j]) { 
 				sb.WriteByte(line[j])
 				continue
+			} 
+
+			if sb.Len() > 0 {
+				pos := lsp.Position{Line:i, Character: j-sb.Len()}
+				tokens = append(tokens, Token{pos: pos, value: sb.String()})
+				sb.Reset()
 			}
-			if sb.Len() == 0 {
-				continue
+
+			if line[j] != ' ' {
+				pos := lsp.Position{Line:i, Character: j}
+				tokens = append(tokens, Token{pos: pos, value: string(line[j])}) 
 			}
-			pos := lsp.Position{Line:i, Character: j+1-sb.Len()}
-			tokens = append(tokens, Token{pos: pos, value: sb.String()})
-			sb.Reset()
 		}
 		if sb.Len() == 0 {
 			continue
@@ -44,6 +54,46 @@ func GetTokensToNewLine(tokens []Token) []Token {
 		idx++
 	}
 	return tokens[:idx] 
+}
+
+func IterTokensToNewLine(tokens []Token) iter.Seq2[int, Token] {
+	line := tokens[0].pos.Line
+	return func(yield func(int, Token) bool) {
+		for i, v := range tokens {
+			if !yield(i, v) {
+				return
+			}
+			if v.pos.Line != line {
+				return 
+			}
+		}
+	}
+}
+
+func IterTokensToValue(tokens []Token, val string) iter.Seq2[int, Token] {
+	return func(yield func(int, Token) bool) {
+		for i, v := range tokens {
+			if !yield(i, v) {
+				return
+			}
+			if v.value == val {
+				return 
+			}
+		}
+	}
+}
+
+func IterTokensToAnyValue(tokens []Token, vals... string) iter.Seq2[int, Token] {
+	return func(yield func(int, Token) bool) {
+		for i, v := range tokens {
+			if !yield(i, v) {
+				return
+			}
+			if slices.Contains(vals, v.value) {
+				return 
+			}
+		}
+	}
 }
 
 func GetFunctionTokens(tokens []Token, declaration string, l int) ([]Token, error) {
@@ -128,10 +178,7 @@ func GetFunctionBodyTokens(tokens []Token) ([]Token, bool) {
 
 func Stringify(tokens []Token) string {
 	value := strings.Builder{}
-	for i, token := range tokens {
-		if i > 0 {
-			value.WriteByte(' ')
-		}
+	for _, token := range tokens {
 		value.WriteString(token.value)
 	}
 	return value.String()

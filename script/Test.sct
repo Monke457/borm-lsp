@@ -1,4 +1,9 @@
+#include <sheg.h>
 #include "file" 
+using f
+
+
+
 bool function main() {
 	MsgBox("Hello World!", "HelloWorld.sct");
 	return true;

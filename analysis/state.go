@@ -4,6 +4,7 @@ import (
 	"borm-lsp/lsp"
 	"fmt"
 	"log"
+	"strings"
 )
 
 type State struct {
@@ -18,15 +19,8 @@ func NewState() State {
 
 func getDiagnosticsForFile(tree SyntaxNode) []lsp.Diagnostic {
 	diagnostics := []lsp.Diagnostic{}
-
 	for _, node := range tree.GetBadNodes() {
-		var msg string
-		switch node.Type {
-		case INCLUDE:
-			msg = "Bad include statement. Please reformat the statement: #include <headder-file> OR #include \"file_path\""
-		default:
-			msg = "Syntax error"
-		}
+		msg := strings.Join(node.Diagnostics, "\n")
 		diagnostics = append(diagnostics, lsp.Diagnostic{
 			Range: lsp.Range{Start: node.Start, End: node.End},
 			Severity: 1,
@@ -34,7 +28,6 @@ func getDiagnosticsForFile(tree SyntaxNode) []lsp.Diagnostic {
 			Message: msg,
 		})
 	}
-	
 	return diagnostics
 }
 
